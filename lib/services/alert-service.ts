@@ -1,12 +1,11 @@
-import { AlertSeverity, AlertType } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { monthBounds, previousMonthKeys } from "@/lib/date";
 import { decimalToNumber } from "@/lib/services/common";
 import { listFixedExpenseProfiles } from "@/lib/services/fixed-expense-service";
 
 type AlertInput = {
-  type: AlertType;
-  severity: AlertSeverity;
+  type: "low_cash_buffer" | "overspending" | "unusual_tx" | "fixed_bill_anomaly";
+  severity: "low" | "medium" | "high";
   message: string;
   metadata: Record<string, unknown>;
 };
@@ -62,8 +61,8 @@ export async function evaluateAlertsForMonth(userId: string, monthKey: string) {
   const coverageMonths = fixedMonthly > 0 ? cashPosition / fixedMonthly : 99;
   if (coverageMonths < 2) {
     alerts.push({
-      type: AlertType.low_cash_buffer,
-      severity: AlertSeverity.high,
+      type: "low_cash_buffer",
+      severity: "high",
       message: `Cash buffer is low (${coverageMonths.toFixed(1)} months).`,
       metadata: { month: monthKey, coverageMonths }
     });
@@ -103,8 +102,8 @@ export async function evaluateAlertsForMonth(userId: string, monthKey: string) {
 
   if (avgSpend > 0 && currentSpend > avgSpend * 1.15) {
     alerts.push({
-      type: AlertType.overspending,
-      severity: AlertSeverity.medium,
+      type: "overspending",
+      severity: "medium",
       message: `Current month spend is ${(currentSpend / avgSpend * 100 - 100).toFixed(1)}% above your typical level.`,
       metadata: { month: monthKey, currentSpend, avgSpend }
     });
@@ -135,8 +134,8 @@ export async function evaluateAlertsForMonth(userId: string, monthKey: string) {
     const delta = Math.abs(Math.abs(decimalToNumber(tx.amount)) - avg);
     if (delta > Math.max(avg * 0.8, 120)) {
       alerts.push({
-        type: AlertType.unusual_tx,
-        severity: AlertSeverity.medium,
+        type: "unusual_tx",
+        severity: "medium",
         message: `Unusual transaction detected for ${tx.merchant}.`,
         metadata: { month: monthKey, key: tx.id, merchant: tx.merchant, amount: decimalToNumber(tx.amount), avg }
       });
@@ -151,8 +150,8 @@ export async function evaluateAlertsForMonth(userId: string, monthKey: string) {
     const threshold = avg + Math.max(sd * 2, avg * 0.2);
     if (latest > threshold) {
       alerts.push({
-        type: AlertType.fixed_bill_anomaly,
-        severity: AlertSeverity.medium,
+        type: "fixed_bill_anomaly",
+        severity: "medium",
         message: `Fixed expense anomaly: ${profile.merchantNormalized} latest charge is above normal range.`,
         metadata: {
           month: monthKey,

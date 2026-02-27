@@ -1,4 +1,3 @@
-import { Direction, SyncJobStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizeMerchant } from "@/lib/format";
 import { currentMonthKey } from "@/lib/date";
@@ -60,7 +59,7 @@ async function ingestSyncData(input: {
     if (!bankAccountId) continue;
 
     const categoryId = await pickCategoryId(input.userId, tx.sourceCategory, tx.merchant);
-    const direction = tx.amount >= 0 ? Direction.income : Direction.expense;
+    const direction = tx.amount >= 0 ? "income" : "expense";
 
     await prisma.transaction.upsert({
       where: {
@@ -103,7 +102,7 @@ async function markSyncFailed(syncJobId: string, error: unknown) {
   await prisma.syncJob.update({
     where: { id: syncJobId },
     data: {
-      status: SyncJobStatus.FAILED,
+      status: "FAILED",
       finishedAt: new Date(),
       errorMessage: error instanceof Error ? error.message : "Unknown sync error"
     }
@@ -125,7 +124,7 @@ export async function startConnectionSync(userId: string, connectionId: string) 
   const syncJob = await prisma.syncJob.create({
     data: {
       connectionId,
-      status: SyncJobStatus.RUNNING,
+      status: "RUNNING",
       startedAt: new Date()
     }
   });
@@ -159,7 +158,7 @@ export async function startConnectionSync(userId: string, connectionId: string) 
 
       await prisma.syncJob.update({
         where: { id: syncJob.id },
-        data: { status: SyncJobStatus.CHALLENGE_REQUIRED }
+        data: { status: "CHALLENGE_REQUIRED" }
       });
 
       return {
@@ -196,7 +195,7 @@ export async function startConnectionSync(userId: string, connectionId: string) 
     await prisma.syncJob.update({
       where: { id: syncJob.id },
       data: {
-        status: SyncJobStatus.COMPLETED,
+        status: "COMPLETED",
         finishedAt: new Date()
       }
     });
@@ -295,7 +294,7 @@ export async function submitSyncChallenge(userId: string, challengeId: string, o
   await prisma.syncJob.update({
     where: { id: challenge.syncJobId },
     data: {
-      status: SyncJobStatus.COMPLETED,
+      status: "COMPLETED",
       finishedAt: new Date()
     }
   });

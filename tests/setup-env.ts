@@ -1,4 +1,5 @@
-process.env.NODE_ENV = "test";
+(process.env as any).NODE_ENV = "test";
+process.env.APP_DB_PROVIDER = process.env.APP_DB_PROVIDER ?? "sqlite";
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/test?schema=public";
 process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET ?? "test-secret";
 process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";

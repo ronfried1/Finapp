@@ -6,4 +6,6 @@ out
 .env.production
 coverage
 prisma/dev.db
+prisma/*.db
+prisma/*.db-journal
 .DS_Store

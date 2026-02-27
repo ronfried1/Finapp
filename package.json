@@ -3,14 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "npm run db:prepare",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
+    "db:sync-schema": "node scripts/switch-prisma-schema.mjs",
+    "db:prepare": "npm run db:sync-schema && prisma generate",
+    "db:generate": "npm run db:prepare",
+    "db:migrate": "npm run db:sync-schema && prisma migrate dev",
+    "db:push": "npm run db:sync-schema && prisma db push",
     "db:seed": "node prisma/seed.mjs"
   },
   "dependencies": {

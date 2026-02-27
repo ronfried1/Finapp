@@ -1,0 +1,355 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  NEEDS_REAUTH
+  DISCONNECTED
+}
+
+enum SyncJobStatus {
+  PENDING
+  RUNNING
+  CHALLENGE_REQUIRED
+  COMPLETED
+  FAILED
+}
+
+enum ChallengeStatus {
+  OPEN
+  SUBMITTED
+  EXPIRED
+  RESOLVED
+}
+
+enum Direction {
+  income
+  expense
+}
+
+enum AlertType {
+  low_cash_buffer
+  overspending
+  unusual_tx
+  fixed_bill_anomaly
+}
+
+enum AlertSeverity {
+  low
+  medium
+  high
+}
+
+model User {
+  id                    String                 @id @default(cuid())
+  name                  String?
+  email                 String?                @unique
+  emailVerified         DateTime?
+  image                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  oauthAccounts         Account[]
+  sessions              Session[]
+  appPasscode           AppPasscode?
+  financialConnections  FinancialConnection[]
+  bankAccounts          BankAccount[]
+  categories            Category[]
+  merchantRules         MerchantRule[]
+  fixedExpenseProfiles  FixedExpenseProfile[]
+  monthlyBudgets        MonthlyBudget[]
+  alertEvents           AlertEvent[]
+  auditLogs             AuditLog[]
+  transactions          Transaction[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model AppPasscode {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  hash        String
+  enabled     Boolean  @default(false)
+  failedCount Int      @default(0)
+  lockedUntil DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("app_passcodes")
+}
+
+model FinancialConnection {
+  id                   String            @id @default(cuid())
+  userId               String
+  provider             String
+  displayName          String
+  status               ConnectionStatus  @default(ACTIVE)
+  lastSuccessfulSyncAt DateTime?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  encryptedCredential EncryptedCredential?
+  syncJobs            SyncJob[]
+  accounts            BankAccount[]
+
+  @@index([userId])
+  @@map("financial_connections")
+}
+
+model EncryptedCredential {
+  id                    String   @id @default(cuid())
+  connectionId          String   @unique
+  credentialsIv         String
+  credentialsTag        String
+  credentialsCiphertext String
+  sessionIv             String?
+  sessionTag            String?
+  sessionCiphertext     String?
+  algorithm             String   @default("aes-256-gcm")
+  keyVersion            Int      @default(1)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  connection FinancialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@map("encrypted_credentials")
+}
+
+model SyncJob {
+  id           String       @id @default(cuid())
+  connectionId String
+  status       SyncJobStatus @default(PENDING)
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  errorMessage String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  connection FinancialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  challenges SyncChallenge[]
+
+  @@index([connectionId, status])
+  @@map("sync_jobs")
+}
+
+model SyncChallenge {
+  id            String          @id @default(cuid())
+  syncJobId     String
+  challengeType String
+  status        ChallengeStatus @default(OPEN)
+  attempts      Int             @default(0)
+  payload       Json?
+  expiresAt     DateTime
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  syncJob SyncJob @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
+
+  @@index([syncJobId, status])
+  @@map("sync_challenges")
+}
+
+model BankAccount {
+  id               String   @id @default(cuid())
+  userId           String
+  connectionId     String
+  sourceExternalId String
+  name             String
+  accountType      String
+  currency         String   @default("ILS")
+  lastBalance      Decimal
+  lastBalanceAt    DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connection   FinancialConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([connectionId, sourceExternalId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Transaction {
+  id                 String    @id @default(cuid())
+  userId             String
+  bankAccountId      String
+  sourceExternalId   String
+  occurredAt         DateTime
+  postedAt           DateTime?
+  merchant           String
+  merchantNormalized String
+  description        String
+  amount             Decimal
+  direction          Direction
+  categoryId         String
+  sourceCategory     String?
+  isOutlier          Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([bankAccountId, sourceExternalId])
+  @@index([userId, occurredAt])
+  @@index([userId, merchantNormalized])
+  @@index([userId, categoryId])
+  @@map("transactions")
+}
+
+model Category {
+  id                  String   @id @default(cuid())
+  userId              String
+  name                String
+  color               String
+  isSystem            Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchantRules        MerchantRule[]
+  transactions         Transaction[]
+  fixedExpenseProfiles FixedExpenseProfile[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@map("categories")
+}
+
+model MerchantRule {
+  id                 String   @id @default(cuid())
+  userId             String
+  merchantNormalized String
+  categoryId         String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, merchantNormalized])
+  @@index([categoryId])
+  @@map("merchant_rules")
+}
+
+model FixedExpenseProfile {
+  id                 String   @id @default(cuid())
+  userId             String
+  merchantNormalized String
+  categoryId         String
+  avgMonthlyAmount   Decimal
+  latestAmount       Decimal
+  stdDevAmount       Decimal
+  lastObservedAt     DateTime
+  isConfirmed        Boolean  @default(false)
+  isIgnored          Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, merchantNormalized])
+  @@index([userId])
+  @@map("fixed_expense_profiles")
+}
+
+model MonthlyBudget {
+  id        String   @id @default(cuid())
+  userId    String
+  month     String
+  capAmount Decimal
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month])
+  @@index([userId])
+  @@map("monthly_budgets")
+}
+
+model AlertEvent {
+  id         String        @id @default(cuid())
+  userId     String
+  type       AlertType
+  severity   AlertSeverity
+  message    String
+  metadata   Json
+  createdAt  DateTime      @default(now())
+  resolvedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, resolvedAt])
+  @@index([userId, type])
+  @@map("alert_events")
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  userId          String?
+  action          String
+  entityType      String
+  entityId        String?
+  redactedPayload Json?
+  createdAt       DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}

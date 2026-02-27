@@ -6,6 +6,7 @@
 - Port: `3000`
 
 ## Required Secrets
+- `APP_DB_PROVIDER` (set to `postgresql` in production)
 - `DATABASE_URL`
 - `APP_ENCRYPTION_KEY_BASE64`
 - `NEXTAUTH_URL`

@@ -1,10 +1,10 @@
 # Personal Finance Dashboard MVP
 
-A Next.js + Postgres dashboard focused on spending clarity for Israeli bank and credit-card accounts.
+A Next.js dashboard focused on spending clarity for Israeli bank and credit-card accounts.
 
 ## Stack
 - Next.js (App Router, TypeScript)
-- Prisma + Postgres
+- Prisma + PostgreSQL/SQLite (env-controlled)
 - NextAuth (Google OAuth)
 - AES-256-GCM app-layer encryption for sensitive fields
 
@@ -13,14 +13,25 @@ A Next.js + Postgres dashboard focused on spending clarity for Israeli bank and 
    `npm install`
 2. Copy env template:
    `cp .env.example .env`
-3. Generate Prisma client:
-   `npx prisma generate`
-4. Run migrations:
-   `npx prisma migrate dev --name init`
-5. Seed categories:
+3. Set database mode in `.env`:
+   - `APP_DB_PROVIDER="postgresql"` and PostgreSQL `DATABASE_URL`, or
+   - `APP_DB_PROVIDER="sqlite"` and `DATABASE_URL="file:./prisma/dev.db"`
+4. Prepare Prisma schema/client for selected provider:
+   `npm run db:prepare`
+5. Create/update DB schema:
+   - Postgres: `npm run db:migrate -- --name init`
+   - SQLite: `npm run db:push`
+6. Seed categories:
    `npx prisma db seed`
-6. Start app:
+7. Start app:
    `npm run dev`
+
+## Database Provider Switching
+- The active Prisma schema is selected from env:
+  - `prisma/schema.postgresql.prisma`
+  - `prisma/schema.sqlite.prisma`
+- Run `npm run db:sync-schema` when switching providers.
+- Then run `npm run db:prepare` to regenerate Prisma client.
 
 ## Required Environment
 See `.env.example`.

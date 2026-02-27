@@ -1,4 +1,3 @@
-import { ConnectionStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { decryptJson, encryptJson } from "@/lib/crypto";
 
@@ -21,7 +20,7 @@ export async function createConnectionWithCredentials(input: {
       userId: input.userId,
       provider: input.provider,
       displayName: input.displayName,
-      status: ConnectionStatus.ACTIVE,
+      status: "ACTIVE",
       encryptedCredential: {
         create: {
           credentialsIv: encrypted.iv,
