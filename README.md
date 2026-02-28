@@ -15,7 +15,7 @@ A Next.js dashboard focused on spending clarity for Israeli bank and credit-card
    `cp .env.example .env`
 3. Set database mode in `.env`:
    - `APP_DB_PROVIDER="postgresql"` and PostgreSQL `DATABASE_URL`, or
-   - `APP_DB_PROVIDER="sqlite"` and `DATABASE_URL="file:./prisma/dev.db"`
+   - `APP_DB_PROVIDER="sqlite"` and `DATABASE_URL="file:./dev.db"`
 4. Prepare Prisma schema/client for selected provider:
    `npm run db:prepare`
 5. Create/update DB schema:

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -207,7 +207,7 @@ model BankAccount {
   name             String
   accountType      String
   currency         String   @default("ILS")
-  lastBalance      Decimal  @db.Decimal(14, 2)
+  lastBalance      Decimal
   lastBalanceAt    DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -231,7 +231,7 @@ model Transaction {
   merchant           String
   merchantNormalized String
   description        String
-  amount             Decimal   @db.Decimal(14, 2)
+  amount             Decimal
   direction          Direction
   categoryId         String
   sourceCategory     String?
@@ -290,9 +290,9 @@ model FixedExpenseProfile {
   userId             String
   merchantNormalized String
   categoryId         String
-  avgMonthlyAmount   Decimal  @db.Decimal(14, 2)
-  latestAmount       Decimal  @db.Decimal(14, 2)
-  stdDevAmount       Decimal  @db.Decimal(14, 2)
+  avgMonthlyAmount   Decimal
+  latestAmount       Decimal
+  stdDevAmount       Decimal
   lastObservedAt     DateTime
   isConfirmed        Boolean  @default(false)
   isIgnored          Boolean  @default(false)
@@ -311,7 +311,7 @@ model MonthlyBudget {
   id        String   @id @default(cuid())
   userId    String
   month     String
-  capAmount Decimal  @db.Decimal(14, 2)
+  capAmount Decimal
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
