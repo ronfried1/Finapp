@@ -5,6 +5,8 @@ type RawCredentials = {
   username: string;
   password: string;
   institution: string;
+  accountNumber?: string;
+  card6Digits?: string;
 };
 
 export async function createConnectionWithCredentials(input: {

@@ -17,19 +17,24 @@ async function createAlertIfMissing(userId: string, input: AlertInput) {
     key: input.metadata.key ?? input.message
   });
 
-  const existing = await prisma.alertEvent.findFirst({
+  const existing = await prisma.alertEvent.findMany({
     where: {
       userId,
       type: input.type,
-      resolvedAt: null,
-      metadata: {
-        path: ["signature"],
-        equals: signature
-      }
-    }
+      resolvedAt: null
+    },
+    select: { metadata: true },
+    take: 200
   });
 
-  if (existing) return;
+  const duplicate = existing.some((event) => {
+    if (!event.metadata || typeof event.metadata !== "object" || Array.isArray(event.metadata)) {
+      return false;
+    }
+    const value = (event.metadata as Record<string, unknown>).signature;
+    return typeof value === "string" && value === signature;
+  });
+  if (duplicate) return;
 
   await prisma.alertEvent.create({
     data: {

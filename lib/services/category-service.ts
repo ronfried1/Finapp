@@ -41,9 +41,11 @@ export async function pickCategoryId(userId: string, sourceCategory: string | un
 
   const requestedName = sourceCategory?.trim();
   if (requestedName) {
-    const match = await prisma.category.findFirst({
-      where: { userId, name: { equals: requestedName, mode: "insensitive" } }
+    const categories = await prisma.category.findMany({
+      where: { userId },
+      select: { id: true, name: true }
     });
+    const match = categories.find((category) => category.name.toLowerCase() === requestedName.toLowerCase());
     if (match) {
       return match.id;
     }

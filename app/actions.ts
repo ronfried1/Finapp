@@ -13,18 +13,30 @@ import { resolveAlert } from "@/lib/services/alert-service";
 import { setFixedExpenseConfirmation } from "@/lib/services/fixed-expense-service";
 import { normalizeMerchant } from "@/lib/format";
 
-type ActionResult = { ok: boolean; message?: string };
-
-export async function createConnectionAction(formData: FormData): Promise<ActionResult> {
+export async function createConnectionAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const provider = String(formData.get("provider") ?? "israeli-bank-scrapers");
   const displayName = String(formData.get("displayName") ?? "");
   const institution = String(formData.get("institution") ?? "");
   const username = String(formData.get("username") ?? "");
   const password = String(formData.get("password") ?? "");
+  const accountNumber = String(formData.get("accountNumber") ?? "").trim();
+  const card6Digits = String(formData.get("card6Digits") ?? "").trim();
+  const institutionKey = institution.trim().toLowerCase();
 
   if (!displayName || !institution || !username || !password) {
-    return { ok: false, message: "Missing required fields" };
+    throw new Error("Missing required fields");
+  }
+
+  const isDiscount = ["discount", "discount bank", "דיסקונט"].includes(institutionKey);
+  const isIsracard = ["isracard", "isracart", "isra card", "ישראכרט"].includes(institutionKey);
+
+  if (isDiscount && !accountNumber) {
+    throw new Error("Discount requires account number.");
+  }
+
+  if (isIsracard && !/^\d{6}$/.test(card6Digits)) {
+    throw new Error("Isracard requires 6 card digits.");
   }
 
   await ensureDefaultCategories(userId);
@@ -36,123 +48,105 @@ export async function createConnectionAction(formData: FormData): Promise<Action
     credentials: {
       institution,
       username,
-      password
+      password,
+      accountNumber: accountNumber || undefined,
+      card6Digits: card6Digits || undefined
     }
   });
 
   revalidatePath("/accounts");
   revalidatePath("/dashboard");
-  return { ok: true };
 }
 
-export async function syncConnectionAction(formData: FormData): Promise<ActionResult> {
+export async function syncConnectionAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const connectionId = String(formData.get("connectionId") ?? "");
   if (!connectionId) {
-    return { ok: false, message: "Missing connection ID" };
+    throw new Error("Missing connection ID");
   }
 
-  try {
-    const result = await startConnectionSync(userId, connectionId);
-    revalidatePath("/accounts");
-    revalidatePath("/dashboard");
-    revalidatePath("/transactions");
-    revalidatePath("/fixed-expenses");
-
-    if (result.status === "challenge_required") {
-      return { ok: true, message: `Challenge required: ${result.challengeId}` };
-    }
-
-    return { ok: true, message: "Sync completed" };
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Sync failed" };
-  }
+  await startConnectionSync(userId, connectionId);
+  revalidatePath("/accounts");
+  revalidatePath("/dashboard");
+  revalidatePath("/transactions");
+  revalidatePath("/fixed-expenses");
 }
 
-export async function submitChallengeAction(formData: FormData): Promise<ActionResult> {
+export async function submitChallengeAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const challengeId = String(formData.get("challengeId") ?? "");
   const otpCode = String(formData.get("otpCode") ?? "");
 
   if (!challengeId || !otpCode) {
-    return { ok: false, message: "Missing challenge data" };
+    throw new Error("Missing challenge data");
   }
 
-  try {
-    await submitSyncChallenge(userId, challengeId, otpCode);
-    revalidatePath("/accounts");
-    revalidatePath("/dashboard");
-    revalidatePath("/transactions");
-    return { ok: true, message: "Challenge resolved" };
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "OTP failed" };
-  }
+  await submitSyncChallenge(userId, challengeId, otpCode);
+  revalidatePath("/accounts");
+  revalidatePath("/dashboard");
+  revalidatePath("/transactions");
 }
 
-export async function setMonthlyBudgetAction(formData: FormData): Promise<ActionResult> {
+export async function setMonthlyBudgetAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const month = String(formData.get("month") ?? "");
   const capAmount = Number(formData.get("capAmount") ?? "0");
   if (!month || !Number.isFinite(capAmount) || capAmount <= 0) {
-    return { ok: false, message: "Invalid budget" };
+    throw new Error("Invalid budget");
   }
 
   await setMonthlyBudget(userId, month, capAmount);
   revalidatePath("/budget");
   revalidatePath("/dashboard");
-  return { ok: true };
 }
 
-export async function recategorizeTransactionAction(formData: FormData): Promise<ActionResult> {
+export async function recategorizeTransactionAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const transactionId = String(formData.get("transactionId") ?? "");
   const categoryId = String(formData.get("categoryId") ?? "");
   const createRule = formData.get("createRule") === "on";
 
   if (!transactionId || !categoryId) {
-    return { ok: false, message: "Missing transaction or category" };
+    throw new Error("Missing transaction or category");
   }
 
   await recategorizeTransaction({ userId, transactionId, categoryId, createRule });
   revalidatePath("/transactions");
   revalidatePath("/dashboard");
-  return { ok: true };
 }
 
-export async function resolveAlertAction(formData: FormData): Promise<ActionResult> {
+export async function resolveAlertAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const alertId = String(formData.get("alertId") ?? "");
   if (!alertId) {
-    return { ok: false, message: "Missing alert ID" };
+    throw new Error("Missing alert ID");
   }
 
   await resolveAlert(userId, alertId);
   revalidatePath("/dashboard");
-  return { ok: true };
 }
 
-export async function setFixedExpenseConfirmationAction(formData: FormData): Promise<ActionResult> {
+export async function setFixedExpenseConfirmationAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const id = String(formData.get("id") ?? "");
   const isConfirmed = String(formData.get("isConfirmed") ?? "false") === "true";
 
   if (!id) {
-    return { ok: false, message: "Missing item" };
+    throw new Error("Missing item");
   }
 
   await setFixedExpenseConfirmation(userId, id, isConfirmed);
   revalidatePath("/fixed-expenses");
   revalidatePath("/dashboard");
-  return { ok: true };
 }
 
-export async function createCategoryAction(formData: FormData): Promise<ActionResult> {
+export async function createCategoryAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const name = String(formData.get("name") ?? "").trim();
   const color = String(formData.get("color") ?? "#6b7280");
 
   if (!name) {
-    return { ok: false, message: "Name is required" };
+    throw new Error("Name is required");
   }
 
   await prisma.category.upsert({
@@ -163,16 +157,15 @@ export async function createCategoryAction(formData: FormData): Promise<ActionRe
 
   revalidatePath("/categories");
   revalidatePath("/transactions");
-  return { ok: true };
 }
 
-export async function createMerchantRuleAction(formData: FormData): Promise<ActionResult> {
+export async function createMerchantRuleAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const merchant = String(formData.get("merchant") ?? "");
   const categoryId = String(formData.get("categoryId") ?? "");
 
   if (!merchant || !categoryId) {
-    return { ok: false, message: "Merchant and category are required" };
+    throw new Error("Merchant and category are required");
   }
 
   await prisma.merchantRule.upsert({
@@ -193,14 +186,13 @@ export async function createMerchantRuleAction(formData: FormData): Promise<Acti
   });
 
   revalidatePath("/categories");
-  return { ok: true };
 }
 
-export async function setPasscodeAction(formData: FormData): Promise<ActionResult> {
+export async function setPasscodeAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const passcode = String(formData.get("passcode") ?? "");
   if (!/^\d{4,8}$/.test(passcode)) {
-    return { ok: false, message: "Passcode must be 4-8 digits" };
+    throw new Error("Passcode must be 4-8 digits");
   }
 
   const hash = await hashPasscode(passcode);
@@ -212,16 +204,15 @@ export async function setPasscodeAction(formData: FormData): Promise<ActionResul
   await setPasscodeVerifiedCookie(userId);
 
   revalidatePath("/settings/security");
-  return { ok: true, message: "Passcode enabled" };
 }
 
-export async function verifyPasscodeAction(formData: FormData): Promise<ActionResult> {
+export async function verifyPasscodeAction(formData: FormData): Promise<void> {
   const userId = await requireUserId();
   const passcode = String(formData.get("passcode") ?? "");
   const record = await prisma.appPasscode.findUnique({ where: { userId } });
 
   if (!record?.enabled) {
-    return { ok: false, message: "Passcode is not enabled" };
+    throw new Error("Passcode is not enabled");
   }
 
   const valid = await verifyPasscode(passcode, record.hash);
@@ -230,7 +221,7 @@ export async function verifyPasscodeAction(formData: FormData): Promise<ActionRe
       where: { userId },
       data: { failedCount: { increment: 1 } }
     });
-    return { ok: false, message: "Invalid passcode" };
+    throw new Error("Invalid passcode");
   }
 
   await prisma.appPasscode.update({
@@ -240,10 +231,9 @@ export async function verifyPasscodeAction(formData: FormData): Promise<ActionRe
 
   await setPasscodeVerifiedCookie(userId);
   revalidatePath("/dashboard");
-  return { ok: true, message: "Unlocked" };
 }
 
-export async function disablePasscodeAction(): Promise<ActionResult> {
+export async function disablePasscodeAction(): Promise<void> {
   const userId = await requireUserId();
   await prisma.appPasscode.upsert({
     where: { userId },
@@ -261,5 +251,4 @@ export async function disablePasscodeAction(): Promise<ActionResult> {
 
   await clearPasscodeVerifiedCookie();
   revalidatePath("/settings/security");
-  return { ok: true, message: "Passcode disabled" };
 }

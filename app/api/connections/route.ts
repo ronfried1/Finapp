@@ -10,7 +10,9 @@ const CreateBodySchema = z.object({
   displayName: z.string().min(1),
   institution: z.string().min(1),
   username: z.string().min(1),
-  password: z.string().min(1)
+  password: z.string().min(1),
+  accountNumber: z.string().trim().optional(),
+  card6Digits: z.string().trim().optional()
 });
 
 export async function GET() {
@@ -31,6 +33,15 @@ export async function POST(request: Request) {
     const userId = await requireApiAccess();
     await ensureDefaultCategories(userId);
     const body = CreateBodySchema.parse(await request.json());
+    const institutionKey = body.institution.trim().toLowerCase();
+    const isDiscount = ["discount", "discount bank", "דיסקונט"].includes(institutionKey);
+    const isIsracard = ["isracard", "isracart", "isra card", "ישראכרט"].includes(institutionKey);
+    if (isDiscount && !body.accountNumber) {
+      return badRequest("Discount requires accountNumber.");
+    }
+    if (isIsracard && !/^\d{6}$/.test(body.card6Digits ?? "")) {
+      return badRequest("Isracard requires card6Digits (6 digits).");
+    }
 
     const connection = await createConnectionWithCredentials({
       userId,
@@ -39,7 +50,9 @@ export async function POST(request: Request) {
       credentials: {
         institution: body.institution,
         username: body.username,
-        password: body.password
+        password: body.password,
+        accountNumber: body.accountNumber || undefined,
+        card6Digits: body.card6Digits || undefined
       }
     });
 

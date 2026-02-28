@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { normalizeMerchant } from "@/lib/format";
 import { currentMonthKey } from "@/lib/date";
@@ -7,6 +8,10 @@ import { getDecryptedCredentials, getSessionBlob, updateEncryptedSession } from 
 import { pickCategoryId } from "@/lib/services/category-service";
 import { recomputeFixedExpenseProfiles } from "@/lib/services/fixed-expense-service";
 import { evaluateAlertsForMonth } from "@/lib/services/alert-service";
+
+function toJsonInput(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue;
+}
 
 async function ingestSyncData(input: {
   userId: string;
@@ -137,7 +142,9 @@ export async function startConnectionSync(userId: string, connectionId: string) 
       {
         institution: credentials.institution,
         username: credentials.username,
-        password: credentials.password
+        password: credentials.password,
+        accountNumber: credentials.accountNumber,
+        card6Digits: credentials.card6Digits
       },
       sessionBlob
     );
@@ -148,10 +155,10 @@ export async function startConnectionSync(userId: string, connectionId: string) 
           syncJobId: syncJob.id,
           challengeType: result.challengeType,
           status: "OPEN",
-          payload: {
+          payload: toJsonInput({
             connectionId,
             sessionBlob: result.sessionBlob
-          },
+          }),
           expiresAt: new Date(Date.now() + 10 * 60 * 1000)
         }
       });
@@ -241,6 +248,8 @@ export async function submitSyncChallenge(userId: string, challengeId: string, o
       institution: credentials.institution,
       username: credentials.username,
       password: credentials.password,
+      accountNumber: credentials.accountNumber,
+      card6Digits: credentials.card6Digits,
       otpCode
     },
     payload?.sessionBlob
@@ -251,10 +260,10 @@ export async function submitSyncChallenge(userId: string, challengeId: string, o
       where: { id: challengeId },
       data: {
         attempts: { increment: 1 },
-        payload: {
+        payload: toJsonInput({
           connectionId: challenge.syncJob.connectionId,
           sessionBlob: result.sessionBlob
-        }
+        })
       }
     });
 

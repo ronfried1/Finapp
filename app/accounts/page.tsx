@@ -43,14 +43,27 @@ export default async function AccountsPage() {
         <Card title="Add connection" subtitle="Credentials are encrypted before storage">
           <form action={createConnectionAction} className="inline">
             <input name="displayName" placeholder="Display name" required />
-            <input name="institution" placeholder="Institution (e.g. Hapoalim Credit)" required />
-            <input name="username" placeholder="Username" required />
+            <select name="institution" required defaultValue="">
+              <option value="" disabled>
+                Institution
+              </option>
+              <option value="discount">Discount Bank</option>
+              <option value="max">Max</option>
+              <option value="cal">Cal</option>
+              <option value="isracard">Isracard</option>
+            </select>
+            <input name="username" placeholder="Login username / ID" required />
             <input name="password" type="password" placeholder="Password" required />
+            <input name="accountNumber" placeholder="Discount account number (num)" />
+            <input name="card6Digits" placeholder="Isracard last 6 digits" pattern="[0-9]{6}" />
             <input type="hidden" name="provider" value="israeli-bank-scrapers" />
             <button className="button" type="submit">
               Save connection
             </button>
           </form>
+          <p className="muted">
+            Discount requires account number. Isracard requires last 6 digits of the card.
+          </p>
         </Card>
 
         <Card title="Open OTP challenges" subtitle="Submit one-time code and continue blocked sync">

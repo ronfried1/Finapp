@@ -7,6 +7,10 @@ A Next.js dashboard focused on spending clarity for Israeli bank and credit-card
 - Prisma + PostgreSQL/SQLite (env-controlled)
 - NextAuth (Google OAuth)
 - AES-256-GCM app-layer encryption for sensitive fields
+- `israeli-bank-scrapers` for live bank/card sync
+
+## Runtime Requirement
+- For live scraping mode, use Node.js `>=22.12.0` (package requirement from `israeli-bank-scrapers`).
 
 ## Quick Start
 1. Install dependencies:
@@ -52,7 +56,20 @@ with header:
 
 ## Current Notes
 - `israeli-bank-scrapers` adapter is wired behind a service layer.
+- Supported live institutions: Discount, Max, Cal, Isracard.
 - For local development without live bank credentials, fallback mock sync data is generated.
+
+## Live Bank/Card Connection
+1. In `.env`, set:
+   - `USE_SCRAPER_MOCK="false"`
+   - `SCRAPER_START_DAYS="365"` (optional)
+2. Start app and open `/accounts`.
+3. Add one connection per institution:
+   - Discount: `institution=discount`, login `username` (ID), `password`, and `accountNumber` (`num`).
+   - Max: `institution=max`, login `username`, `password`.
+   - Cal: `institution=cal`, login `username`, `password`.
+   - Isracard: `institution=isracard`, login `username` (ID), `password`, and `card6Digits`.
+4. Click `Sync now`.
 
 ## App Screens
 - `/dashboard`
